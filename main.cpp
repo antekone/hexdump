@@ -71,7 +71,7 @@ int main() {
         0x00, 0x00, 0x00,
     };
 
-    HexDumper::print(data, sizeof(data));
-
+    uint64_t ofs = 0x12345789;
+    HexDumper::print(data, sizeof(data), ofs);
     return 0;
 }
