@@ -2,6 +2,9 @@
 #include <iostream>
 #include <iomanip>
 
+#define HD_ALIGN_DOWN(x)  ((x) & ~15)
+#define HD_ALIGN_UP(x)    (HD_ALIGN_DOWN(x) + 15)
+
 namespace HexDumperNS {
 
 class CoutWriter {
@@ -81,57 +84,104 @@ private:
         return n;
     }
 
-    static void draw_header(size_t offset, size_t size) {
-        size_t widelen = calc_widelen(offset);
+    static void draw_header(size_t offset, uint64_t size) {
         if(_Style::want_offset()) {
-            Writer::pad(3 + calc_offsetlen(offset, size));
-            Writer::put("-");
+            Writer::pad(std::max<int>(9, calc_offsetlen(offset, size)));
+            Writer::put("    ");
             Writer::pad(0);
-            Writer::put("   ");
+            Writer::put("  ");
         }
 
-        for(size_t i = 0; i < widelen; ++i) {
+        bool mark = false;
+        for(size_t i = 0; i < 16; ++i) {
+            if(i > 7 && !mark) {
+                Writer::put(" -");
+                mark = true;
+            }
+
             Writer::put(" 0");
             Writer::put(g_hextab[i]);
+        }
+
+        Writer::put("\n");
+
+        if(_Style::want_offset()) {
+            Writer::pad(std::max<int>(9, calc_offsetlen(offset, size)));
+            Writer::put("    ");
+            Writer::pad(0);
+            Writer::put("  ");
+        }
+
+        mark = false;
+        for(size_t i = 0; i < 16; ++i) {
+            if(i > 7 && !mark) {
+                Writer::put(" -");
+                mark = true;
+            }
+
+            Writer::put(" --");
         }
 
         Writer::put("\n");
     }
 
     template <typename _PointerType>
-    static void draw_data(_PointerType* buf, size_t size, size_t offset) {
+    static void draw_data(_PointerType* buf, size_t size, uint64_t offset) {
         bool offset_time = true;
-        for(size_t i = 0; i < size; ++i) {
-            char buf[3] = { g_hextab[buf[i] & 0xF0 >> 4], g_hextab[buf[i] & 0x0F], 0 };
+        uint64_t aligned_start = HD_ALIGN_DOWN(offset);
+        int offsetlen = std::max<int>(9, calc_offsetlen(aligned_start, size));
+        int i = 0;
+        bool mark = false;
 
-            if(i % 16 == 0) {
-                offset_time = true;
-            }
-
-            if(Style::want_offset() && offset_time) {
-                char buf2[64];
-                sprintf(buf2, "%llx", offset + i);
-                Writer::put("\n");
-                Writer::pad(3 + calc_offsetlen(offset + i, size));
+        while(aligned_start < size + offset) {
+            if(offset_time) {
+                char buf2[32];
+                sprintf(buf2, "%llx", (long long unsigned int) aligned_start);
+                Writer::pad(offsetlen);
                 Writer::put(buf2);
-                Writer::pad(0);
-                Writer::put("    ");
+                Writer::put("   ");
                 offset_time = false;
+                mark = false;
             }
 
-            Writer::put(buf);
-            Writer::put(" ");
+            if(aligned_start >= offset) {
+                char buf2[3] = { 0, 0, 0 };
+
+                uint8_t b = buf[aligned_start - offset];
+                buf2[0] = g_hextab[(b & 0xF0) >> 4];
+                buf2[1] = g_hextab[b & 15];
+
+                if(i > 7 && !mark) {
+                    Writer::put("  ");
+                    mark = true;
+                }
+
+                Writer::put(buf2);
+                Writer::put(" ");
+            } else {
+                Writer::put("   ");
+            }
+
+            aligned_start++;
+            i++;
+
+            if(i >= 16) {
+                Writer::put("\n");
+                offset_time = true;
+                i = 0;
+            }
         }
     }
 
 public:
     template <typename _PointerType>
-    static void print(_PointerType* buf, size_t size, size_t offset) {
+    static void print(_PointerType* buf, size_t size, uint64_t offset) {
         if(_Style::want_header()) {
             draw_header(offset, size);
         }
 
         draw_data(buf, size, offset);
+        Writer::put("\n");
     }
 };
 
@@ -142,3 +192,6 @@ typedef StyledHexDumper<
                 HexDumperNS::CoutWriter
             >
         > HexDumper;
+
+#undef HD_ALIGN_UP
+#undef HD_ALIGN_DOWN

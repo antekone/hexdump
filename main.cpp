@@ -71,7 +71,13 @@ int main() {
         0x00, 0x00, 0x00,
     };
 
-    uint64_t ofs = 0x12345789;
+    const unsigned char data2[3] = { 1, 2, 3 };
+
+    uint64_t ofs = 0x12345678;
     HexDumper::print(data, sizeof(data), ofs);
+
+    std::cout << std::endl;
+
+    HexDumper::print(data2, sizeof(data2), 0x14FA);
     return 0;
 }
